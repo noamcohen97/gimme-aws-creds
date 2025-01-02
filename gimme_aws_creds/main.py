@@ -23,6 +23,8 @@ import concurrent.futures
 # extras
 import boto3
 import requests
+import botocore
+import botocore.config
 from botocore.exceptions import ClientError
 from okta.api_client import APIClient
 from okta.errors.error import Error as OktaError
@@ -188,15 +190,13 @@ class GimmeAWSCreds(object):
     def _get_sts_creds(partition, region, assertion, idp, role, duration=3600):
         """ using the assertion and arns return aws sts creds """
 
-        session = boto3.session.Session(profile_name=None)
-
         # If a region was passed, use that
-        if region is not None:
-            client = session.client('sts', region)
-        # Use the first available region
-        else:
-            regions = session.get_available_regions('sts', partition)
-            client = session.client('sts', regions[0])
+        if region is None:
+            # Use the first available region
+            region = session.get_available_regions('sts', partition)[0]
+
+        config = botocore.config.Config(signature_version=botocore.UNSIGNED)
+        client = boto3.client('sts', region, config=config)
 
         response = client.assume_role_with_saml(
             RoleArn=role,
